@@ -13,6 +13,7 @@ using Material = UnityEngine.Material;
 
 public class MeshComponents : MonoBehaviour
 {
+    public static Dictionary<float3, ChunkTable> _lookupMesh;
     public Camera mainCamera;
     public Mesh tileMeshComp;
     public static MeshComponents instance;
@@ -20,11 +21,13 @@ public class MeshComponents : MonoBehaviour
     
     public readonly static int chunkSize = 32;
     public readonly static int radius = 8;
+    public static int _drawDistance;
     public static int worldSize = 2;
 
     public static Mesh tileMesh;
     //public static List<string> toRemove = new List<string>();
     public Material material;
+    public int drawDistance = 5000;
 
     public float3 lasbuildPos;
 
@@ -54,8 +57,10 @@ public class MeshComponents : MonoBehaviour
 
     private void Awake()
     {
+        _lookupMesh = new Dictionary<float3, ChunkTable>();
         textureAtlas = material;
         tileMesh = tileMeshComp;
+        _drawDistance = drawDistance;
         instance = this;
     }
 
@@ -102,6 +107,7 @@ public class MeshComponents : MonoBehaviour
         //StartBuildUltraChunksJob();
         StartConstructChunksJob();
         StartBuildChunkMesh();
+        StartDrawMesh();
         if(continuousWorldBuild)
             StartBuildQueue();
     }
@@ -249,6 +255,20 @@ public class MeshComponents : MonoBehaviour
         var simulationSystemGroup = world.GetOrCreateSystem<SimulationSystemGroup>();
 
         var countSystem = world.GetOrCreateSystem<BuildChunkMesh>();
+
+        simulationSystemGroup.AddSystemToUpdateList(countSystem);
+
+        simulationSystemGroup.SortSystemUpdateList();
+
+        ScriptBehaviourUpdateOrder.UpdatePlayerLoop(world);
+    }
+
+    private void StartDrawMesh()
+    {
+        var world = World.DefaultGameObjectInjectionWorld;
+        var simulationSystemGroup = world.GetOrCreateSystem<SimulationSystemGroup>();
+
+        var countSystem = world.GetOrCreateSystem<DrawMesh>();
 
         simulationSystemGroup.AddSystemToUpdateList(countSystem);
 

@@ -96,14 +96,8 @@ public class ContructMegaChunks : JobComponentSystem
         for (int i = 0; i < MeshComponents.radius * MeshComponents.radius; i++)
         {
             float2 offset = Get2DPositionFromIndex(i, MeshComponents.radius);
-            positionList[i] = new float3(mainCamera.transform.position.x + (offset.x) * MeshComponents.chunkSize, 0, mainCamera.transform.position.z + (offset.y) * MeshComponents.chunkSize);
+            positionList[i] = new float3(mainCamera.transform.position.x - (offset.x) * MeshComponents.chunkSize, 0, mainCamera.transform.position.z - (offset.y) * MeshComponents.chunkSize);
         }
-
-        //positionList[0] = new float3(mainCamera.transform.position.x, 0, mainCamera.transform.position.z);
-        //positionList[1] = new float3(mainCamera.transform.position.x + MeshComponents.chunkSize, 0, mainCamera.transform.position.z);
-        //positionList[2] = new float3(mainCamera.transform.position.x - MeshComponents.chunkSize, 0, mainCamera.transform.position.z);
-        //positionList[3] = new float3(mainCamera.transform.position.x, 0, mainCamera.transform.position.z + MeshComponents.chunkSize);
-        //positionList[4] = new float3(mainCamera.transform.position.x, 0, mainCamera.transform.position.z - MeshComponents.chunkSize);
 
         CreateMegaChunk createMegaChunk = new CreateMegaChunk
         {

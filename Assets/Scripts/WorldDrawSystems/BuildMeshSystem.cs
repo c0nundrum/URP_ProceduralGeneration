@@ -11,11 +11,69 @@ using Unity.Rendering;
 using Unity.Transforms;
 using RaycastHit = Unity.Physics.RaycastHit;
 
+public class ChunkTable
+{
+    public Entity entity;
+    public Mesh mesh;
+    public bool isDrawn;
+
+    public ChunkTable(Entity entity, Mesh mesh)
+    {
+        this.entity = entity;
+        this.mesh = mesh;
+        this.isDrawn = false;
+    }
+}
+
+[DisableAutoCreation]
+[UpdateAfter(typeof(BuildChunkMesh))]
+public class DrawMesh : ComponentSystem
+{
+    private UnityEngine.Material material;
+    private float3 lastbuildPos;
+    public Camera mainCamera;
+
+    protected override void OnStartRunning()
+    {
+        base.OnStartRunning();
+
+    }
+
+    protected override void OnCreate()
+    {
+        mainCamera = Camera.main;
+        lastbuildPos = mainCamera.transform.position;
+        material = MeshComponents.textureAtlas;
+        base.OnCreate();
+    }
+
+    protected override void OnUpdate()
+    {
+        foreach (var chunkTable in MeshComponents._lookupMesh)
+        {
+            if (!chunkTable.Value.isDrawn && math.distancesq(mainCamera.transform.position, chunkTable.Key) < MeshComponents._drawDistance)
+            {
+                EntityManager.AddSharedComponentData(chunkTable.Value.entity, new RenderMesh { mesh = chunkTable.Value.mesh, material = material });
+                EntityManager.AddComponentData(chunkTable.Value.entity, new RenderBounds { Value = chunkTable.Value.mesh.bounds.ToAABB() });
+                EntityManager.AddComponentData(chunkTable.Value.entity, new LocalToWorld { });
+                chunkTable.Value.isDrawn = true;
+            } else if (chunkTable.Value.isDrawn && math.distancesq(mainCamera.transform.position, chunkTable.Key) >= MeshComponents._drawDistance)
+            {
+                EntityManager.RemoveComponent(chunkTable.Value.entity, typeof(RenderMesh));
+                EntityManager.RemoveComponent(chunkTable.Value.entity, typeof(RenderBounds));
+                EntityManager.RemoveComponent(chunkTable.Value.entity, typeof(LocalToWorld));
+                chunkTable.Value.isDrawn = false;
+            }
+        }
+    }
+}
+
 [DisableAutoCreation]
 public class BuildChunkMesh : ComponentSystem
 {
     private Mesh originMesh;
     private UnityEngine.Material material;
+    //private Dictionary<float3, Mesh> dict;
 
     private float Map(float newmin, float newmax, float originalMin, float originalMax, float value)
     {
@@ -88,15 +146,16 @@ public class BuildChunkMesh : ComponentSystem
         return new float2(x, y);
     }
 
+
     private Mesh HexChunk(Vector3 position, MegaChunk chunk)
     {
         List<Mesh> hexChunk = new List<Mesh>();
 
         for (int i = 0; i < MeshComponents.chunkSize * MeshComponents.chunkSize; i++)
         {
-            
-            Mesh hex = new Mesh();          
-            
+
+            Mesh hex = new Mesh();
+
             Vector3[] vertices = originMesh.vertices;
 
             float2 position2D = Get2DPositionFromIndex(i, MeshComponents.chunkSize);
@@ -110,7 +169,7 @@ public class BuildChunkMesh : ComponentSystem
                 vertices[j] += buildPosition;
             }
 
-            hex.vertices = vertices;           
+            hex.vertices = vertices;
             hex.uv = originMesh.uv;
             hex.normals = originMesh.normals;
             hex.triangles = originMesh.triangles;
@@ -120,6 +179,7 @@ public class BuildChunkMesh : ComponentSystem
         }
 
         CombineInstance[] array = new CombineInstance[hexChunk.Count];
+
 
         for (int i = 0; i < array.Length; i++)
             array[i].mesh = hexChunk[i];
@@ -137,6 +197,7 @@ public class BuildChunkMesh : ComponentSystem
         //OriginCube = MakeCubeAtZero();
         originMesh = MeshComponents.tileMesh;
         material = MeshComponents.textureAtlas;
+        //dict = new Dictionary<float3, Mesh>();
 
         base.OnCreate();
     }
@@ -164,11 +225,18 @@ public class BuildChunkMesh : ComponentSystem
         //There is an option to do culling per chunk by leaving out the PerInstanceCulling tag component. Meaning for each chunk we use the combined bounding volume.For grass likely a good choice.
         Entities.WithAll<MegaChunk>().WithNone<RenderMesh>().ForEach((Entity en, ref MegaChunk chunk) => {
 
-            Mesh hex = HexChunk(chunk.center, chunk);
-            EntityManager.AddSharedComponentData(en, new RenderMesh { mesh = hex, material = material });
-            EntityManager.AddComponentData(en, new RenderBounds { Value = hex.bounds.ToAABB() });
-            //EntityManager.AddComponentData(en, new PerInstanceCullingTag { });
-            EntityManager.AddComponentData(en, new LocalToWorld { });
+            if (!MeshComponents._lookupMesh.ContainsKey(chunk.center))
+            {
+                Mesh hex = HexChunk(chunk.center, chunk);
+                ChunkTable chunkTable = new ChunkTable(en, hex);
+                ////EntityManager.AddSharedComponentData(en, new RenderMesh { mesh = hex, material = material, castShadows = UnityEngine.Rendering.ShadowCastingMode.On });
+                //EntityManager.AddSharedComponentData(en, new RenderMesh { mesh = hex, material = material });
+                //EntityManager.AddComponentData(en, new RenderBounds { Value = hex.bounds.ToAABB() });
+                ////EntityManager.AddComponentData(en, new PerInstanceCullingTag { });
+                //EntityManager.AddComponentData(en, new LocalToWorld { });
+                //chunkTable.isDrawn = true;
+                MeshComponents._lookupMesh.Add(chunk.center, chunkTable);
+            }
 
         });
     }
