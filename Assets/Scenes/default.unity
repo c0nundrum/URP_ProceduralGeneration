@@ -329,6 +329,10 @@ PrefabInstance:
       propertyPath: material
       value: 
       objectReference: {fileID: 2100000, guid: 4281bb87f7d134442bf676fbf81b9cf9, type: 2}
+    - target: {fileID: 8988901743065630256, guid: 2d9050c401e5675458beb17323dd230c, type: 3}
+      propertyPath: drawDistance
+      value: 10000
+      objectReference: {fileID: 0}
     - target: {fileID: 8988901743065630257, guid: 2d9050c401e5675458beb17323dd230c, type: 3}
       propertyPath: m_Name
       value: ComponentHandler

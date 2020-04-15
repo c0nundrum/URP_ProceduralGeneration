@@ -7,11 +7,15 @@ using System;
 
 public enum ChunkStatus { DRAW, DONE, KEEP };
 
+public enum BiomeType { FOREST, DESERT, PLAIN }
+
 public struct WorldChunk : IComponentData
 {
     public int3 position;
     public ChunkStatus status;
 }
+
+public struct BuildBiome : ISharedComponentData { public BiomeType biomeType; }
 
 public struct CurrentChunkFlag : IComponentData { };
 public struct DrawChunkFlag : IComponentData { };
@@ -19,6 +23,7 @@ public struct BuildCollisionMeshFlag : IComponentData { };
 public struct DoneChunkFlag : IComponentData { };
 public struct BuildMeshFlag : IComponentData { };
 public struct CubeFlag : IComponentData { };
+public struct HasMeshDataFlag : IComponentData { };
 
 public struct CubePosition : IComponentData {
     public float3 position;
@@ -27,6 +32,12 @@ public struct CubePosition : IComponentData {
     public Entity owner;
     public Entity parent;
 };
+
+public struct Region : IComponentData
+{
+    public float3 center;
+    public bool hasMeshData;
+}
 
 public struct MegaChunk : IComponentData {
     public float3 center;

@@ -21,6 +21,7 @@ public class MeshComponents : MonoBehaviour
     
     public readonly static int chunkSize = 32;
     public readonly static int radius = 8;
+    public readonly static int regionSize = chunkSize * radius;
     public static int _drawDistance;
     public static int worldSize = 2;
 
@@ -96,7 +97,7 @@ public class MeshComponents : MonoBehaviour
 
         //Build Bigger World
 
-        StartChunkPipeline(false);
+        StartChunkPipeline(true);
         //StartNonChunkPipeline(true);
 
     }
@@ -105,6 +106,7 @@ public class MeshComponents : MonoBehaviour
     {
         //StartBuildMegaChunksJob();
         //StartBuildUltraChunksJob();
+        StartConstructRegionJob();
         StartConstructChunksJob();
         StartBuildChunkMesh();
         StartDrawMesh();
@@ -167,16 +169,16 @@ public class MeshComponents : MonoBehaviour
 
     private void StartBuildQueue()
     {
-        var world = World.DefaultGameObjectInjectionWorld;
-        var simulationSystemGroup = world.GetOrCreateSystem<SimulationSystemGroup>();
+        //var world = World.DefaultGameObjectInjectionWorld;
+        //var simulationSystemGroup = world.GetOrCreateSystem<SimulationSystemGroup>();
 
-        var countSystem = world.GetOrCreateSystem<CurrentChunkSystem>();
+        //var countSystem = world.GetOrCreateSystem<CurrentChunkSystem>();
 
-        simulationSystemGroup.AddSystemToUpdateList(countSystem);
+        //simulationSystemGroup.AddSystemToUpdateList(countSystem);
 
-        simulationSystemGroup.SortSystemUpdateList();
+        //simulationSystemGroup.SortSystemUpdateList();
 
-        ScriptBehaviourUpdateOrder.UpdatePlayerLoop(world);
+        //ScriptBehaviourUpdateOrder.UpdatePlayerLoop(world);
     }
 
     private void StartFillChunks()
@@ -227,6 +229,20 @@ public class MeshComponents : MonoBehaviour
         var simulationSystemGroup = world.GetOrCreateSystem<SimulationSystemGroup>();
 
         var countSystem = world.GetOrCreateSystem<ContructMegaChunks>();
+
+        simulationSystemGroup.AddSystemToUpdateList(countSystem);
+
+        simulationSystemGroup.SortSystemUpdateList();
+
+        ScriptBehaviourUpdateOrder.UpdatePlayerLoop(world);
+    }
+
+    private void StartConstructRegionJob()
+    {
+        var world = World.DefaultGameObjectInjectionWorld;
+        var simulationSystemGroup = world.GetOrCreateSystem<SimulationSystemGroup>();
+
+        var countSystem = world.GetOrCreateSystem<BuildRegion>();
 
         simulationSystemGroup.AddSystemToUpdateList(countSystem);
 

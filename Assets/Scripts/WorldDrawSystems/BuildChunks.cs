@@ -9,6 +9,66 @@ using Unity.Physics;
 using Unity.Rendering;
 
 [DisableAutoCreation]
+public class BuildRegion : JobComponentSystem
+{
+    private EndSimulationEntityCommandBufferSystem endSimulationEntityCommandBufferSystem;
+    private EntityArchetype archetype;
+
+    private struct CreateRegionsParallel : IJobParallelFor
+    {
+        [ReadOnly]
+        [DeallocateOnJobCompletion] public NativeArray<float3> position;
+
+        [ReadOnly]
+        public EntityArchetype archetype;
+
+        public EntityCommandBuffer.Concurrent  commandBuffer;
+
+        public void Execute(int index)
+        {
+            Entity en = commandBuffer.CreateEntity(index, archetype);
+            commandBuffer.AddComponent(index, en, new Region { center = position[index], hasMeshData = false });
+        }
+    }
+
+    protected override void OnCreate()
+    {
+        endSimulationEntityCommandBufferSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
+        archetype = EntityManager.CreateArchetype(typeof(Region));
+
+        base.OnCreate();
+    }
+
+    protected override void OnStartRunning()
+    {
+        base.OnStartRunning();
+
+        NativeArray<float3> positions = new NativeArray<float3>(3, Allocator.TempJob);
+
+        positions[0] = float3.zero;
+        positions[1] = new float3(0, 0, 1 * MeshComponents.regionSize);
+        positions[2] = new float3(0, 0, -1 * MeshComponents.regionSize);
+
+        CreateRegionsParallel createRegionsParallelJob = new CreateRegionsParallel
+        {
+            archetype = archetype,
+            commandBuffer = endSimulationEntityCommandBufferSystem.CreateCommandBuffer().ToConcurrent(),
+            position = positions
+        };
+
+        JobHandle handle = createRegionsParallelJob.Schedule(positions.Length, 8);
+
+        endSimulationEntityCommandBufferSystem.AddJobHandleForProducer(handle);
+
+    }
+
+    protected override JobHandle OnUpdate(JobHandle inputDeps)
+    {
+        return inputDeps;
+    }
+}
+
+[DisableAutoCreation]
 public class ContructMegaChunks : JobComponentSystem
 {
     private EndSimulationEntityCommandBufferSystem endSimulationEntityCommandBufferSystem;
@@ -29,7 +89,6 @@ public class ContructMegaChunks : JobComponentSystem
 
         public void Execute(int index)
         {
-
             BuildChunkAt(GetPosition(positionList[index]), index);
 
         }
@@ -84,32 +143,68 @@ public class ContructMegaChunks : JobComponentSystem
         return new float2(x, y);
     }
 
+    private struct GetPositionsToBuild : IJobForEachWithEntity<Region>
+    {
+        [WriteOnly]
+        public NativeArray<float3> output;
+
+        public void Execute(Entity entity, int index, ref Region region)
+        {
+            if (!region.hasMeshData)
+            {
+                output[index] = region.center;
+                region.hasMeshData = true;
+            }
+        }
+    }
+
     protected override void OnStartRunning()
     {
         base.OnStartRunning();
         archetype = EntityManager.CreateArchetype(typeof(MegaChunk), typeof(Translation), typeof(Rotation), typeof(LocalToWorld));
 
-        NativeArray<float3> positionList = new NativeArray<float3>(MeshComponents.radius * MeshComponents.radius, Allocator.TempJob);
+        NativeArray<float3> buildList = new NativeArray<float3>(3, Allocator.TempJob);
 
         lastbuildPos = mainCamera.transform.position;
 
-        for (int i = 0; i < MeshComponents.radius * MeshComponents.radius; i++)
+        //GetPositionsToBuild getPositionsJob = new GetPositionsToBuild
+        //{
+        //    output = buildList
+        //};
+
+        //JobHandle handlePosition = getPositionsJob.Schedule(this);
+        //handlePosition.Complete();
+
+        buildList[0] = float3.zero;
+        buildList[1] = new float3(0, 0, 1 * MeshComponents.regionSize);
+        buildList[2] = new float3(0, 0, -1 * MeshComponents.regionSize);
+
+        for (int j = 0; j < buildList.Length; j++)
         {
-            float2 offset = Get2DPositionFromIndex(i, MeshComponents.radius);
-            positionList[i] = new float3(mainCamera.transform.position.x - (offset.x) * MeshComponents.chunkSize, 0, mainCamera.transform.position.z - (offset.y) * MeshComponents.chunkSize);
+            NativeArray<float3> positionList = new NativeArray<float3>(MeshComponents.radius * MeshComponents.radius, Allocator.TempJob);
+
+            for (int i = 0; i < MeshComponents.radius * MeshComponents.radius; i++)
+            {
+                float2 offset = Get2DPositionFromIndex(i, MeshComponents.radius);
+                //positionList[i] = new float3(mainCamera.transform.position.x - (offset.x) * MeshComponents.chunkSize, 0, mainCamera.transform.position.z - (offset.y) * MeshComponents.chunkSize);
+                positionList[i] = new float3(buildList[j].x - (offset.x) * MeshComponents.chunkSize, 0, buildList[j].z - (offset.y) * MeshComponents.chunkSize);
+            }
+
+            CreateMegaChunk createMegaChunk = new CreateMegaChunk
+            {
+                archetype = archetype,
+                chunkSize = MeshComponents.chunkSize,
+                commandBuffer = endSimulationEntityCommandBufferSystem.CreateCommandBuffer().ToConcurrent(),
+                positionList = positionList
+            };
+
+            JobHandle handle = createMegaChunk.Schedule(positionList.Length, 16);
+
+            endSimulationEntityCommandBufferSystem.AddJobHandleForProducer(handle);
         }
 
-        CreateMegaChunk createMegaChunk = new CreateMegaChunk
-        {
-            archetype = archetype,
-            chunkSize = MeshComponents.chunkSize,
-            commandBuffer = endSimulationEntityCommandBufferSystem.CreateCommandBuffer().ToConcurrent(),
-            positionList = positionList
-        };
+        buildList.Dispose();
 
-        JobHandle handle = createMegaChunk.Schedule(positionList.Length, 16);
-
-        endSimulationEntityCommandBufferSystem.AddJobHandleForProducer(handle);
     }
 
     protected override JobHandle OnUpdate(JobHandle inputDeps)

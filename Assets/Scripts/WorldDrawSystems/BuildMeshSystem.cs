@@ -223,7 +223,7 @@ public class BuildChunkMesh : ComponentSystem
     protected override void OnUpdate()
     {
         //There is an option to do culling per chunk by leaving out the PerInstanceCulling tag component. Meaning for each chunk we use the combined bounding volume.For grass likely a good choice.
-        Entities.WithAll<MegaChunk>().WithNone<RenderMesh>().ForEach((Entity en, ref MegaChunk chunk) => {
+        Entities.WithAll<MegaChunk>().WithNone<RenderMesh, HasMeshDataFlag>().ForEach((Entity en, ref MegaChunk chunk) => {
 
             if (!MeshComponents._lookupMesh.ContainsKey(chunk.center))
             {
@@ -236,6 +236,7 @@ public class BuildChunkMesh : ComponentSystem
                 //EntityManager.AddComponentData(en, new LocalToWorld { });
                 //chunkTable.isDrawn = true;
                 MeshComponents._lookupMesh.Add(chunk.center, chunkTable);
+                PostUpdateCommands.AddComponent(en, new HasMeshDataFlag { });
             }
 
         });
